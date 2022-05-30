@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
 	"time"
 )
@@ -24,8 +23,8 @@ func newDeck() []card {
 	return deck
 }
 
-func printDeck(newdeck []card) {
-	for _, c := range newdeck {
+func printDeck(deck []card) {
+	for _, c := range deck {
 		printCard(c)
 	}
 }
@@ -52,9 +51,9 @@ func deal(deck []card) ([]card, card) {
 	return newdeck, c
 }
 
-func printCard(c card) {
-	fmt.Print(c.number, " of ")
-	fmt.Print(c.suit, "\n")
+func printCard(c card) string {
+	cardprint := c.number + " of " + c.suit
+	return cardprint
 }
 
 func newHand() []card {

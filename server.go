@@ -6,21 +6,32 @@ import (
 	"net"
 )
 
+//Server has 4 fields
+//	commands is the command input from each go routine
+//	members is a map of net addresses to client pointers
+//  deck is the deck of cards used by all clients
+//  pool is the collection of money each round
 type server struct {
 	commands chan command
 	members  map[net.Addr]*client
+	deck     []card
+	pool     int
 }
 
 func newServer() *server {
 	return &server{
 		commands: make(chan command),
 		members:  make(map[net.Addr]*client),
+		deck:     newDeck(),
+		pool:     0,
 	}
 }
 
 func (s *server) run() {
 	for cmd := range s.commands {
 		switch cmd.id {
+		case CMD_START:
+			s.start(cmd.client, cmd.args)
 		case CMD_JOIN:
 			s.join(cmd.client, cmd.args)
 		case CMD_FOLD:
@@ -44,6 +55,8 @@ func (s *server) newClient(conn net.Conn) {
 		conn:     conn,
 		name:     "anon",
 		commands: s.commands,
+		hand:     newHand(),
+		bankroll: 500,
 	}
 
 	c.readInput()
@@ -81,6 +94,22 @@ func (s *server) msg_all(sender *client, msg string) {
 	for addr, cli := range s.members {
 		if addr != sender.conn.RemoteAddr() {
 			cli.msg(msg)
+		}
+	}
+}
+
+func (s *server) start(c *client, args []string) {
+	log.Printf("Starting game")
+	c.msg("Starting Game")
+	s.msg_all(c, "Starting game")
+	s.deck = newDeck()
+	s.deck = shuffle(s.deck)
+	for _, cli := range s.members {
+		cli.hand = newHand()
+		dealcard := card{suit: "", number: ""}
+		for i := 0; i < 3; i++ {
+			s.deck, dealcard = deal(s.deck)
+			cli.hand = append(cli.hand, dealcard)
 		}
 	}
 }
