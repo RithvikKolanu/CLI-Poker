@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 )
@@ -25,7 +26,7 @@ func newDeck() []card {
 
 func printDeck(deck []card) {
 	for _, c := range deck {
-		printCard(c)
+		fmt.Println(printCard(c))
 	}
 }
 
@@ -33,9 +34,12 @@ func shuffle(deck []card) []card {
 	shuffled := make([]card, len(deck))
 	rand.Seed(time.Now().UnixNano())
 	random := rand.Perm(len(deck))
-	for i, j := range random {
-		shuffled[j] = deck[i]
+	for x := 0; x < 52; x++ {
+		for i, j := range random {
+			shuffled[j] = deck[i]
+		}
 	}
+
 	return shuffled
 }
 

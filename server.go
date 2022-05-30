@@ -12,18 +12,20 @@ import (
 //  deck is the deck of cards used by all clients
 //  pool is the collection of money each round
 type server struct {
-	commands chan command
-	members  map[net.Addr]*client
-	deck     []card
-	pool     int
+	commands    chan command
+	members     map[net.Addr]*client
+	memberorder []*client
+	deck        []card
+	pool        int
 }
 
 func newServer() *server {
 	return &server{
-		commands: make(chan command),
-		members:  make(map[net.Addr]*client),
-		deck:     newDeck(),
-		pool:     0,
+		commands:    make(chan command),
+		members:     make(map[net.Addr]*client),
+		memberorder: make([]*client, 0),
+		deck:        newDeck(),
+		pool:        0,
 	}
 }
 
@@ -64,21 +66,33 @@ func (s *server) newClient(conn net.Conn) {
 
 func (s *server) join(c *client, args []string) {
 	s.members[c.conn.RemoteAddr()] = c
-	c.msg("joined server")
-	s.msg_all(c, fmt.Sprintf("joined server: %s", c.name))
+	s.memberorder = append(s.memberorder, c)
+	s.msg_all(fmt.Sprintf("joined server: %s", c.name))
 }
 
+//fold removes the player from the ordered list fo players
 func (s *server) fold(c *client, args []string) {
 	log.Printf("Fold")
-	s.msg_all(c, "folded")
+	s.msg_all(c.name + " folded")
+	i := IndexOf(s.memberorder, c)
+	s.memberorder = append(s.memberorder[:i], s.memberorder[i+1:]...)
+	fmt.Printf("%d", i)
+	if i <= 0 {
+		s.turn(s.memberorder[i], i)
+	} else {
+		s.turn(s.memberorder[i-1], i)
+	}
 }
+
 func (s *server) check(c *client, args []string) {
 	log.Printf("check")
-	s.msg_all(c, "check")
+	s.msg_all(c.name + " checked")
+	s.turn(c, IndexOf(s.memberorder, c)+1)
 }
 func (s *server) raise(c *client, args []string) {
 	log.Printf("raise")
-	s.msg_all(c, "raise")
+	s.msg_all(c.name + " raised")
+	s.turn(c, IndexOf(s.memberorder, c)+1)
 }
 func (s *server) name(c *client, args []string) {
 	c.name = args[1]
@@ -86,22 +100,20 @@ func (s *server) name(c *client, args []string) {
 }
 func (s *server) quit(c *client, args []string) {
 	log.Printf("client has disconnected: %s", c.conn.RemoteAddr().String())
+	s.msg_all(c.name + "has disconnected")
 	c.conn.Close()
 }
 
 //logic for connecting with other clients
-func (s *server) msg_all(sender *client, msg string) {
-	for addr, cli := range s.members {
-		if addr != sender.conn.RemoteAddr() {
-			cli.msg(msg)
-		}
+func (s *server) msg_all(msg string) {
+	for _, cli := range s.members {
+		cli.msg(msg)
 	}
 }
 
 func (s *server) start(c *client, args []string) {
 	log.Printf("Starting game")
-	c.msg("Starting Game")
-	s.msg_all(c, "Starting game")
+	s.msg_all("Starting game")
 	s.deck = newDeck()
 	s.deck = shuffle(s.deck)
 	for _, cli := range s.members {
@@ -112,4 +124,25 @@ func (s *server) start(c *client, args []string) {
 			cli.hand = append(cli.hand, dealcard)
 		}
 	}
+}
+
+func (s *server) turn(prev *client, index int) {
+	fmt.Println(index)
+	fmt.Println(len(s.memberorder))
+	if index > len(s.memberorder)-1 {
+		s.msg_all(s.memberorder[0].name + "'s turn")
+	} else if index < 0 {
+		s.msg_all(s.memberorder[0].name + "'s turn")
+	} else {
+		s.msg_all(s.memberorder[index].name + "'s turn")
+	}
+}
+
+func IndexOf(slice []*client, val *client) int {
+	for i, v := range slice {
+		if v == val {
+			return i
+		}
+	}
+	return -1
 }
