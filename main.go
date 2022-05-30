@@ -1,15 +1,30 @@
 package main
 
-import "fmt"
+import (
+	"log"
+	"net"
+)
 
 func main() {
-	newdeck := newDeck()
-	newdeck = shuffle(newdeck)
-	newdeck, c := deal(newdeck)
-	hand1 := newHand()
-	hand1 = append(hand1, c)
-	fmt.Print("------\n")
-	printDeck(hand1)
-	fmt.Printf("length of deck: %d\n", len(newdeck))
-	fmt.Printf("Length of Hand: %d\n", len(hand1))
+	s := newServer()
+
+	go s.run()
+
+	listener, err := net.Listen("tcp", ":8888")
+	if err != nil {
+		log.Printf("Unable to start server: ", err.Error())
+	}
+
+	defer listener.Close()
+	log.Println("Started server on :8888")
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Printf("unable to accept connection: ", err.Error())
+			continue
+		}
+
+		go s.newClient(conn)
+	}
 }
