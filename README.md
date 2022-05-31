@@ -11,6 +11,9 @@ These are the list of commands:
 - `/check`      : Player checks 
 - `/raise <x>`  : Player raises the bet by x dollars
 - `/quit`       : Player quits, and their client disconnects
+- `/hand`		: Displays players hand
+- `/flop`		: Displays the current flop
+- `/showbet`    : Shows how much the player has currently bet per round
 
 # Connecting
 To connect to the server from a new terminal, type in:

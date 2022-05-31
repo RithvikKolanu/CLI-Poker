@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
 	"time"
 )
@@ -24,9 +23,9 @@ func newDeck() []card {
 	return deck
 }
 
-func printDeck(deck []card) {
+func (s *server) printDeck(deck []card) {
 	for _, c := range deck {
-		fmt.Println(printCard(c))
+		s.msg_all(printCard(c))
 	}
 }
 
@@ -56,7 +55,7 @@ func deal(deck []card) ([]card, card) {
 }
 
 func printCard(c card) string {
-	cardprint := c.number + " of " + c.suit
+	cardprint := "     " + c.number + " of " + c.suit
 	return cardprint
 }
 

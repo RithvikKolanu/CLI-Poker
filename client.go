@@ -2,8 +2,8 @@ package main
 
 import (
 	"bufio"
-	"log"
 	"net"
+	"strconv"
 	"strings"
 )
 
@@ -18,6 +18,8 @@ type client struct {
 	commands chan<- command
 	hand     []card
 	bankroll int
+	roundbet int
+	matched  bool
 }
 
 func (c *client) readInput() {
@@ -76,9 +78,17 @@ func (c *client) readInput() {
 				args:   args,
 			}
 		case "/hand":
-			c.printHand()
+			c.printCardsClient(c.hand)
+		case "/showbet":
+			c.msg(strconv.Itoa(c.roundbet))
+		case "/flop":
+			c.commands <- command{
+				id:     CMD_FLOP,
+				client: c,
+				args:   args,
+			}
 		default:
-			log.Printf("not a valid command")
+			c.msg("Not a valid operation")
 		}
 	}
 }
@@ -87,8 +97,8 @@ func (c *client) msg(msg string) {
 	c.conn.Write([]byte("> " + msg + "\n"))
 }
 
-func (c *client) printHand() {
-	for _, cards := range c.hand {
-		c.msg(printCard(cards))
+func (c *client) printCardsClient(cards []card) {
+	for _, i := range cards {
+		c.msg(printCard(i))
 	}
 }

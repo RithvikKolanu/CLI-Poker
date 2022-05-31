@@ -10,6 +10,7 @@ const (
 	CMD_RAISE
 	CMD_QUIT
 	CMD_START
+	CMD_FLOP
 )
 
 //Three fields

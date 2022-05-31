@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 )
 
 //Server has 4 fields
@@ -17,6 +18,8 @@ type server struct {
 	memberorder []*client
 	deck        []card
 	pool        int
+	roundmaxbet int
+	flop        []card
 }
 
 func newServer() *server {
@@ -26,6 +29,8 @@ func newServer() *server {
 		memberorder: make([]*client, 0),
 		deck:        newDeck(),
 		pool:        0,
+		roundmaxbet: 0,
+		flop:        make([]card, 0),
 	}
 }
 
@@ -46,6 +51,9 @@ func (s *server) run() {
 			s.name(cmd.client, cmd.args)
 		case CMD_QUIT:
 			s.quit(cmd.client, cmd.args)
+		case CMD_FLOP:
+			c := cmd.client
+			c.printCardsClient(s.flop)
 		}
 	}
 }
@@ -59,6 +67,8 @@ func (s *server) newClient(conn net.Conn) {
 		commands: s.commands,
 		hand:     newHand(),
 		bankroll: 500,
+		roundbet: 0,
+		matched:  true,
 	}
 
 	c.readInput()
@@ -66,8 +76,31 @@ func (s *server) newClient(conn net.Conn) {
 
 func (s *server) join(c *client, args []string) {
 	s.members[c.conn.RemoteAddr()] = c
-	s.memberorder = append(s.memberorder, c)
 	s.msg_all(fmt.Sprintf("joined server: %s", c.name))
+}
+
+func (s *server) start(c *client, args []string) {
+	log.Printf("Starting game")
+	s.msg_all("Starting game")
+	s.deck = newDeck()
+	s.deck = shuffle(s.deck)
+	for _, cli := range s.members {
+		s.memberorder = append(s.memberorder, cli)
+		cli.hand = newHand()
+		dealcard := card{suit: "", number: ""}
+		for i := 0; i < 2; i++ {
+			s.deck, dealcard = deal(s.deck)
+			cli.hand = append(cli.hand, dealcard)
+		}
+	}
+	flopcard := card{suit: "", number: ""}
+	for i := 0; i < 3; i++ {
+		s.deck, flopcard = deal(s.deck)
+		s.flop = append(s.flop, flopcard)
+	}
+	s.msg_all("The flop is: ")
+	s.printDeck(s.flop)
+	s.msg_all(s.memberorder[0].name + "'s turn")
 }
 
 //fold removes the player from the ordered list fo players
@@ -85,19 +118,51 @@ func (s *server) fold(c *client, args []string) {
 }
 
 func (s *server) check(c *client, args []string) {
+	if c.matched == false {
+		c.msg("cannot check, must raise value to match: " + strconv.Itoa(s.roundmaxbet))
+		return
+	}
 	log.Printf("check")
 	s.msg_all(c.name + " checked")
 	s.turn(c, IndexOf(s.memberorder, c)+1)
 }
+
 func (s *server) raise(c *client, args []string) {
+	if len(args) == 1 {
+		c.msg("Error, value was not entered, try again")
+		return
+	}
+	betval, err := strconv.Atoi(args[1])
+	if err != nil {
+		c.msg("Error, value entered was not a number, try again")
+		return
+	}
+	c.roundbet += betval
+	if c.roundbet < s.roundmaxbet {
+		c.msg("Error, value entered was not high enough to match the raise: " + args[1])
+		c.roundbet -= betval
+		return
+	} else if c.roundbet > s.roundmaxbet {
+		s.roundmaxbet = c.roundbet
+		c.matched = true
+		for _, cli := range s.memberorder {
+			if cli != c {
+				cli.matched = false
+			}
+		}
+	} else if c.roundbet == s.roundmaxbet {
+		c.matched = true
+	}
 	log.Printf("raise")
-	s.msg_all(c.name + " raised")
+	s.msg_all(c.name + " raised a total of: " + strconv.Itoa(c.roundbet))
 	s.turn(c, IndexOf(s.memberorder, c)+1)
 }
+
 func (s *server) name(c *client, args []string) {
 	c.name = args[1]
 	c.msg(fmt.Sprintf("name set to %s", c.name))
 }
+
 func (s *server) quit(c *client, args []string) {
 	log.Printf("client has disconnected: %s", c.conn.RemoteAddr().String())
 	s.msg_all(c.name + "has disconnected")
@@ -111,25 +176,25 @@ func (s *server) msg_all(msg string) {
 	}
 }
 
-func (s *server) start(c *client, args []string) {
-	log.Printf("Starting game")
-	s.msg_all("Starting game")
-	s.deck = newDeck()
-	s.deck = shuffle(s.deck)
-	for _, cli := range s.members {
-		cli.hand = newHand()
-		dealcard := card{suit: "", number: ""}
-		for i := 0; i < 3; i++ {
-			s.deck, dealcard = deal(s.deck)
-			cli.hand = append(cli.hand, dealcard)
-		}
-	}
-}
-
 func (s *server) turn(prev *client, index int) {
-	fmt.Println(index)
-	fmt.Println(len(s.memberorder))
 	if index > len(s.memberorder)-1 {
+		for i, cli := range s.memberorder {
+			if cli.matched == false {
+				s.msg_all(s.memberorder[i].name + " has not matched the bet")
+			}
+		}
+		for _, cli := range s.memberorder {
+			if cli.matched == false {
+				s.msg_all(s.memberorder[0].name + " 's turn," + " everyone must raise to: " + strconv.Itoa(s.roundmaxbet))
+				return
+			}
+		}
+		s.roundmaxbet = 0
+		flopcard := card{suit: "", number: ""}
+		s.deck, flopcard = deal(s.deck)
+		s.flop = append(s.flop, flopcard)
+		s.msg_all("The new flop is: ")
+		s.printDeck(s.flop)
 		s.msg_all(s.memberorder[0].name + "'s turn")
 	} else if index < 0 {
 		s.msg_all(s.memberorder[0].name + "'s turn")
