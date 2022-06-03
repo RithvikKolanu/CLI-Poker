@@ -5,6 +5,8 @@ import (
 	"log"
 	"net"
 	"strconv"
+
+	"github.com/chehsunliu/poker"
 )
 
 //Server has 4 fields
@@ -20,6 +22,7 @@ type server struct {
 	pool        int
 	roundmaxbet int
 	flop        []card
+	rounds      int
 }
 
 func newServer() *server {
@@ -31,6 +34,7 @@ func newServer() *server {
 		pool:        0,
 		roundmaxbet: 0,
 		flop:        make([]card, 0),
+		rounds:      0,
 	}
 }
 
@@ -38,7 +42,7 @@ func (s *server) run() {
 	for cmd := range s.commands {
 		switch cmd.id {
 		case CMD_START:
-			s.start(cmd.client, cmd.args)
+			s.start()
 		case CMD_JOIN:
 			s.join(cmd.client, cmd.args)
 		case CMD_FOLD:
@@ -79,13 +83,15 @@ func (s *server) join(c *client, args []string) {
 	s.msg_all(fmt.Sprintf("joined server: %s", c.name))
 }
 
-func (s *server) start(c *client, args []string) {
+func (s *server) start() {
 	log.Printf("Starting game")
-	s.msg_all("Starting game")
+	s.msg_all("\nStarting new round")
 	s.deck = newDeck()
 	s.deck = shuffle(s.deck)
 	for _, cli := range s.members {
 		s.memberorder = append(s.memberorder, cli)
+		cli.roundbet = 0
+		s.roundmaxbet = 0
 		cli.hand = newHand()
 		dealcard := card{suit: "", number: ""}
 		for i := 0; i < 2; i++ {
@@ -93,6 +99,7 @@ func (s *server) start(c *client, args []string) {
 			cli.hand = append(cli.hand, dealcard)
 		}
 	}
+	s.flop = make([]card, 0)
 	flopcard := card{suit: "", number: ""}
 	for i := 0; i < 3; i++ {
 		s.deck, flopcard = deal(s.deck)
@@ -118,7 +125,7 @@ func (s *server) fold(c *client, args []string) {
 }
 
 func (s *server) check(c *client, args []string) {
-	if c.matched == false {
+	if !c.matched {
 		c.msg("cannot check, must raise value to match: " + strconv.Itoa(s.roundmaxbet))
 		return
 	}
@@ -137,6 +144,7 @@ func (s *server) raise(c *client, args []string) {
 		c.msg("Error, value entered was not a number, try again")
 		return
 	}
+
 	c.roundbet += betval
 	if c.roundbet < s.roundmaxbet {
 		c.msg("Error, value entered was not high enough to match the raise: " + args[1])
@@ -179,23 +187,46 @@ func (s *server) msg_all(msg string) {
 func (s *server) turn(prev *client, index int) {
 	if index > len(s.memberorder)-1 {
 		for i, cli := range s.memberorder {
-			if cli.matched == false {
+			if !cli.matched {
 				s.msg_all(s.memberorder[i].name + " has not matched the bet")
 			}
 		}
 		for _, cli := range s.memberorder {
-			if cli.matched == false {
+			if !cli.matched {
 				s.msg_all(s.memberorder[0].name + " 's turn," + " everyone must raise to: " + strconv.Itoa(s.roundmaxbet))
 				return
 			}
 		}
-		s.roundmaxbet = 0
-		flopcard := card{suit: "", number: ""}
-		s.deck, flopcard = deal(s.deck)
-		s.flop = append(s.flop, flopcard)
-		s.msg_all("The new flop is: ")
-		s.printDeck(s.flop)
-		s.msg_all(s.memberorder[0].name + "'s turn")
+		//end of round logic
+		if s.rounds >= 2 {
+			cli := s.memberorder[0]
+			clirank := s.handrank(s.memberorder[0])
+			for i, n := range s.memberorder {
+				if s.handrank(n) > clirank {
+					clirank = s.handrank(n)
+					cli = s.memberorder[i]
+				}
+			}
+			for _, i := range s.memberorder {
+				s.addToPot(i, i.roundbet)
+			}
+			s.msg_all("With rank: " + poker.RankString(clirank) + ", " + cli.name + " has won: " + strconv.Itoa(s.pool))
+			s.collect(cli)
+
+			s.start()
+
+		} else {
+			s.roundmaxbet = 0
+			flopcard := card{suit: "", number: ""}
+			s.deck, flopcard = deal(s.deck)
+			s.flop = append(s.flop, flopcard)
+			s.msg_all("The new flop is: ")
+			s.printDeck(s.flop)
+			fmt.Printf("%d\n", s.rounds)
+			s.rounds++
+			s.msg_all(s.memberorder[0].name + "'s turn")
+		}
+
 	} else if index < 0 {
 		s.msg_all(s.memberorder[0].name + "'s turn")
 	} else {

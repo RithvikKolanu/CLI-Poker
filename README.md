@@ -14,6 +14,7 @@ These are the list of commands:
 - `/hand`		: Displays players hand
 - `/flop`		: Displays the current flop
 - `/showbet`    : Shows how much the player has currently bet per round
+- `/bankroll`	: Shows the players total money 
 
 # Connecting
 To connect to the server from a new terminal, type in:

@@ -81,6 +81,8 @@ func (c *client) readInput() {
 			c.printCardsClient(c.hand)
 		case "/showbet":
 			c.msg(strconv.Itoa(c.roundbet))
+		case "/bankroll":
+			c.msg(strconv.Itoa(c.bankroll))
 		case "/flop":
 			c.commands <- command{
 				id:     CMD_FLOP,

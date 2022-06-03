@@ -5,7 +5,7 @@ func (s *server) addToPot(c *client, val int) {
 	c.bankroll = c.bankroll - val
 }
 
-func (s *server) collect(val int, c *client) {
+func (s *server) collect(c *client) {
 	c.bankroll = c.bankroll + s.pool
 	s.pool = 0
 }

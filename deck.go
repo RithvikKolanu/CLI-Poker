@@ -12,8 +12,8 @@ type card struct {
 
 func newDeck() []card {
 	deck := make([]card, 0, 52)
-	suittypes := []string{"clubs", "diamonds", "hearts", "spades"}
-	cardtypes := []string{"2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King", "Ace"}
+	suittypes := []string{"c", "d", "h", "s"}
+	cardtypes := []string{"2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"}
 
 	for _, s := range suittypes {
 		for _, c := range cardtypes {
@@ -55,7 +55,31 @@ func deal(deck []card) ([]card, card) {
 }
 
 func printCard(c card) string {
-	cardprint := "     " + c.number + " of " + c.suit
+	suits := ""
+	numbers := ""
+	switch c.suit {
+	case "c":
+		suits = "clubs"
+	case "s":
+		suits = "spades"
+	case "d":
+		suits = "diamonds"
+	case "h":
+		suits = "hearts"
+	}
+	switch c.number {
+	case "K":
+		numbers = "King"
+	case "Q":
+		numbers = "Queen"
+	case "J":
+		numbers = "Jack"
+	case "A":
+		numbers = "Ace"
+	default:
+		numbers = c.number
+	}
+	cardprint := "     " + numbers + " of " + suits
 	return cardprint
 }
 
